@@ -8,26 +8,33 @@ A single-page web application with a **dual-mode chat interface**: free-form AI 
 
 ### AI Chat Mode
 - **ChatGPT-style free-form conversation** — ask about medicines, health topics, government schemes
-- **Streaming responses** with a blinking cursor, token-by-token display
+- **Streaming responses** with a typing indicator, then token-by-token display and a blinking cursor
 - **Stop generation** button to cancel mid-response
 - **Markdown bold** rendering in bot messages
 - **Multilingual** — the LLM responds in whatever language the user types (English, Hindi, Hinglish, etc.)
 - **Medical disclaimers** built into the system prompt
-- **Graceful offline handling** — if the LLM server isn't running, shows a clear error and the hospital finder still works
+- **Graceful offline handling** — if the LLM server isn't running, shows a clear error (with a connect/stall timeout so it never hangs indefinitely) and the hospital finder still works
+- **Conversation history** — browse, resume, or delete past conversations from the history panel; start a new chat anytime
 
 ### Hospital Finder Mode
 - **FSM-guided flow**: card selection → location input → hospital results
-- **Three location input modes**: GPS, pincode lookup, city name lookup (Nominatim)
+- **Three location input modes**: GPS, pincode lookup, city name lookup (Nominatim, rate-limit safe)
 - **Interactive map** with color-coded markers (green=MAA, saffron=Ayushman, blue=both, grey=general)
 - **Glass popup + bottom detail sheet** on marker click
-- **Emergency keyword detection** — "chest pain", "accident", etc. triggers immediate emergency response
+- **Emergency keyword detection** — English and Hindi/Hinglish ("chest pain", "seene mein dard", "accident", etc.) triggers immediate emergency response
 - **Smart context passing** — after a hospital search, the AI chat knows the results for follow-up questions
+
+### Account & Data
+- Email/password registration and login (demo-grade — see Security Notes)
+- **Export your data** — download all chats and activity logs as JSON
+- **Delete your account** — type-to-confirm modal, permanently erases the account and every associated chat/log
 
 ### Design
 - **Apple macOS Tahoe "Liquid Glass"** theme with translucent surfaces, backdrop blur, animated gradient background
-- **Adaptive light/dark mode** with persistent toggle
-- **Fully responsive** — desktop side-by-side, mobile stacked
-- **Accessibility** — ARIA roles, keyboard navigation, WCAG AA contrast, prefers-reduced-motion
+- **Adaptive light/dark mode** — respects system preference and live-follows OS theme changes until you explicitly pick one yourself
+- **Installable as a PWA** — manifest + icons + service worker for "Add to Home Screen"
+- **Fully responsive**, mobile-safe viewport handling (no content clipped behind the browser's address bar or a gesture nav bar)
+- **Accessibility** — ARIA roles, keyboard navigation, WCAG AA contrast, `prefers-reduced-motion`, labeled form fields
 
 ## Tech Stack
 
@@ -48,12 +55,14 @@ npm install
 
 ```bash
 llama-server -m gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf \
-  -c 65536 -ctv q4_0 -ctk q4_0 -fa on --jinja \
-  --load-mode mmap --temp 0.3 --top-p 0.95 --top-k 20 \
+  -c 65536 -fa on --jinja --load-mode mmap \
+  --temp 1.0 --top-p 0.95 --top-k 64 \
   -t 4 -np 1 -ngl 99
 ```
 
-This starts the server at `http://localhost:8080` with the OpenAI-compatible `/v1/chat/completions` endpoint.
+This starts the server at `http://localhost:8080` with the OpenAI-compatible `/v1/chat/completions` endpoint. `UD-Q4_K_XL` is the highest-accuracy quant currently available for this model's QAT weights; the sampling values above are Gemma 4's own documented recommendation — lowering temperature does not make answers "more factual," it measurably hurts this model.
+
+If you're memory-constrained (e.g. Apple Silicon unified memory) and 65536 context doesn't fit, either lower `-c` or add `-ctv q4_0 -ctk q4_0` back — quantizing the KV cache costs some accuracy, but a model forced to swap or truncate context is worse.
 
 ### 3. Start the frontend
 
@@ -65,15 +74,33 @@ Open http://localhost:5173 in your browser.
 
 > **Note:** The hospital finder works without the LLM server. The AI chat mode requires llama-server to be running.
 
-## Changing the LLM Server URL
+### 4. (Optional) Share over a Cloudflare Tunnel
 
-Edit `src/lib/llm.ts` — change `DEFAULT_BASE_URL`:
+The frontend talks to the LLM through a relative `/llm-api` path, which Vite's dev server proxies server-side to `localhost:8080` (see `vite.config.ts`). This means one tunnel pointed at Vite's port (5173) — not two — is enough for another device to use the app fully, including AI chat:
 
-```ts
-const DEFAULT_BASE_URL = 'http://localhost:8080';  // change to your server
+```bash
+cloudflared tunnel --url http://localhost:5173
 ```
 
-Compatible with any OpenAI-compatible server: llama.cpp, Ollama (`http://localhost:11434`), vLLM, TGI, LiteLLM, etc.
+Both `llama-server` and `npm run dev` must be running on the same machine as cloudflared for this to work — the tunnel only fronts Vite; Vite is the one making the real `localhost:8080` call, from the machine where that's actually correct.
+
+## Changing the LLM Server URL
+
+`src/lib/llm.ts`'s `DEFAULT_BASE_URL` is `/llm-api` by design — **don't** change it to an absolute URL like `http://localhost:8080` unless you specifically want to lose Cloudflare Tunnel support, since an absolute `localhost` URL only resolves correctly when the browser and llama-server are the same machine.
+
+To point at a different local server (Ollama, vLLM, TGI, etc.), update the proxy *target* in `vite.config.ts` instead of `DEFAULT_BASE_URL`:
+
+```ts
+proxy: {
+  '/llm-api': {
+    target: 'http://localhost:11434', // e.g. Ollama
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/llm-api/, ''),
+  },
+},
+```
+
+This keeps the relative-path/proxy pattern intact (and therefore tunnel support) no matter which server you're actually running.
 
 ## Swapping Seeded Hospital Data for a Real API
 
@@ -90,33 +117,45 @@ const getHospitals = async (): Promise<Hospital[]> => {
 };
 ```
 
+## Security Notes
+
+Auth (`src/lib/auth.ts`) is demo-grade: passwords are stored in plaintext in `localStorage`, and there's no server-side validation of anything. This is fine for a local/single-user prototype behind a tunnel you control, but should not be treated as real authentication. A proper backend (hashed passwords, real sessions, a real database) is the natural next step before this app handles anyone's data beyond your own testing.
+
 ## Project Structure
 
 ```
 src/
-  main.tsx                    # Entry point
-  App.tsx                     # App shell, theme state, layout
+  main.tsx                    # Entry point, error boundary + service worker registration
+  App.tsx                     # App shell, auth gate, theme, tab switching
   index.css                   # CSS variables, glass utilities, streaming cursor
   types.ts                    # TypeScript interfaces + LLM message types
+  vite-env.d.ts                # Vite client type declarations (required — do not delete)
   data/
     hospitals.ts              # Seeded hospital data (14 hospitals)
   lib/
-    llm.ts                    # Streaming LLM client (OpenAI-compatible)
-    geocode.ts                # Pincode/city → coords via Nominatim
+    llm.ts                    # Streaming LLM client (OpenAI-compatible, via /llm-api proxy)
+    geocode.ts                # Pincode/city → coords via Nominatim, rate-limit throttled
     filterHospitals.ts        # Card filter + haversine distance sort
+    auth.ts                   # Register/login/session + account deletion
+    storage.ts                # Chat session CRUD + activity logging + data export
   components/
-    GlassPanel.tsx             # Reusable glass surface wrapper
-    TopBar.tsx                 # Title bar with theme toggle
-    TrafficLights.tsx          # Decorative macOS window dots
-    ChatPanel.tsx              # Dual-mode: AI chat + Hospital FSM
-    ChatMessage.tsx            # Message bubble with markdown bold
-    QuickReplies.tsx           # Quick-reply pill buttons
-    MapPanel.tsx               # Leaflet map wrapper
-    HospitalMarker.tsx         # Color-coded marker + glass popup
-    HospitalSheet.tsx          # Bottom detail sheet
+    LoginPage.tsx              # Auth screen
+    AppHeader.tsx               # Top bar: logo, Chat/Map tabs, export, delete account, theme, logout
+    ChatPanel.tsx               # Dual-mode: AI chat + Hospital FSM + session history
+    ChatHistoryPanel.tsx        # Past-conversations browser (switch/delete/new)
+    ChatMessage.tsx             # Message bubble with markdown bold
+    QuickReplies.tsx            # Quick-reply pill buttons
+    ConfirmDeleteAccountModal.tsx  # Type-to-confirm destructive-action modal
+    ErrorBoundary.tsx           # App-wide crash guard
+    MapPanel.tsx                # Leaflet map wrapper
+    HospitalMarker.tsx          # Color-coded marker + glass popup
+    HospitalSheet.tsx           # Bottom detail sheet
+public/
+  manifest.webmanifest         # PWA manifest
+  sw.js                        # Minimal service worker (installability only, no caching)
+  icon-*.png, apple-touch-icon.png
 ```
 
 ## License
 
-MIT# Swasth
-# Swasth
+MIT
