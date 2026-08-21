@@ -1,0 +1,1402 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ──────────────────────────────────────────── */
+
+:root {
+  --bg-gradient: radial-gradient(135deg, #d6e4f5 0%, #e8f0f9 40%, #f5ebf2 100%);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: rgba(15, 23, 42, 0.18);
+  --text-primary: #1d1d1f;
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --accent: #007aff;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --accent-2: #06b6c4;
+  --accent-2-soft: rgba(6, 182, 196, 0.14);
+  --accent-gradient: linear-gradient(135deg, #2e86f6 0%, #06b6c4 100%);
+  --bot-bubble-bg: linear-gradient(160deg, rgba(6, 182, 196, 0.14), rgba(0, 122, 255, 0.08));
+  --online: #34c759;
+  --maa: #34c759;
+  --ayushman: #ff9f0a;
+  --both: #0a84ff;
+  --none: #8e8e93;
+}
+
+.dark {
+  --bg-gradient: radial-gradient(135deg, #1a1c1e 0%, #0e1116 40%, #15131a 100%);
+  --glass-bg: rgba(40, 40, 44, 0.55);
+  --glass-bg-strong: rgba(28, 28, 30, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-shadow: rgba(0, 0, 0, 0.55);
+  --text-primary: #f5f5f7;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.18);
+  --accent-2: #22d3ee;
+  --accent-2-soft: rgba(34, 211, 238, 0.16);
+  --accent-gradient: linear-gradient(135deg, #0a84ff 0%, #22d3ee 100%);
+  --bot-bubble-bg: linear-gradient(160deg, rgba(34, 211, 238, 0.16), rgba(10, 132, 255, 0.1));
+  --online: #30d158;
+}
+
+/* ─── Base ──────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color: var(--text-primary);
+}
+
+/* ─── Animated Background ───────────────────────────────────── */
+
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--bg-gradient);
+  background-size: 200% 200%;
+  animation: bgShift 20s ease-in-out infinite alternate;
+/*  background-image: url('/bg-chat.jpg');
+  background-size: cover;
+  background-position: center;
+  */
+}
+
+.app-background--login {
+  background-image: url('/bg-login.png');
+  background-size: cover;
+  background-position: center;
+  animation: none;
+}
+
+.app-background--app {
+  background-image: url('/bg-chat.jpg');
+  background-size: cover;
+  background-position: center;
+  animation: none;
+}
+
+@keyframes bgShift {
+  0% {
+    background-position: 0% 0%;
+    filter: hue-rotate(0deg);
+  }
+  33% {
+    background-position: 100% 50%;
+    filter: hue-rotate(8deg);
+  }
+  66% {
+    background-position: 50% 100%;
+    filter: hue-rotate(-5deg);
+  }
+  100% {
+    background-position: 0% 0%;
+    filter: hue-rotate(3deg);
+  }
+}
+
+/* ─── Glass Material System ─────────────────────────────────── */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px -8px var(--glass-shadow),
+    0 2px 8px -4px var(--glass-shadow);
+  border-radius: 20px;
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px -8px var(--glass-shadow),
+    0 2px 8px -4px var(--glass-shadow);
+  border-radius: 24px;
+}
+
+.glass-hover {
+  transition: background 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glass-hover:hover {
+  background: var(--glass-bg-strong);
+  transform: translateY(-1px) scale(1.01);
+}
+
+/* ─── Custom Scrollbar (glass-styled thin scrollbar) ────────── */
+
+.glass-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.glass-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.glass-scroll::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 10px;
+}
+
+.glass-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+/* ─── Leaflet Popup Glass Override ──────────────────────────── */
+
+.leaflet-popup-content-wrapper {
+  background: var(--glass-bg-strong) !important;
+  backdrop-filter: blur(40px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+  border: 0.5px solid var(--glass-border) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px -8px var(--glass-shadow) !important;
+  color: var(--text-primary) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--glass-bg-strong) !important;
+  border: 0.5px solid var(--glass-border) !important;
+  box-shadow: 0 2px 8px -4px var(--glass-shadow) !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-secondary) !important;
+}
+
+/* ─── Focus Ring (Accessibility) ────────────────────────────── */
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .app-background {
+    animation: none;
+  }
+  .glass-hover:hover {
+    transform: none;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Leaflet container resets ──────────────────────────────── */
+
+.leaflet-container {
+  font-family: inherit !important;
+  border-radius: 20px;
+}
+
+.leaflet-control-attribution {
+  background: var(--glass-bg-strong) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  color: var(--text-secondary) !important;
+  font-size: 10px !important;
+  border-radius: 8px 0 0 0 !important;
+  border: 0.5px solid var(--glass-border) !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--accent) !important;
+}
+
+.leaflet-control-zoom a {
+  background: var(--glass-bg-strong) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  color: var(--text-primary) !important;
+  border: 0.5px solid var(--glass-border) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--glass-bg) !important;
+}
+
+/* ─── Typing Indicator Dots ──────────────────────────────────── */
+
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: typingPulse 1.2s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Avatars ────────────────────────────────────────────────── */
+
+.avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  color: #fff;
+}
+
+.avatar-bot {
+  background: var(--accent-gradient);
+}
+
+.avatar-user {
+  background: var(--accent);
+}
+
+.avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--online);
+  border: 2px solid var(--glass-bg-strong);
+}
+
+/* ─── Chat bubble tints ──────────────────────────────────────── */
+
+.bubble-bot {
+  background: var(--bot-bubble-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px -8px var(--glass-shadow);
+}
+
+.bubble-user {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px -8px var(--glass-shadow);
+}
+
+/* ─── Stacked card effect (login) ───────────────────────────── */
+
+.card-stack {
+  position: relative;
+}
+
+.card-stack::before,
+.card-stack::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  height: 100%;
+  border-radius: 24px;
+  background: var(--glass-bg);
+  border: 0.5px solid var(--glass-border);
+  z-index: -1;
+}
+
+.card-stack::before {
+  bottom: -18px;
+  width: calc(100% - 48px);
+  opacity: 0.6;
+  z-index: -2;
+}
+
+/* ─── Streaming cursor ────────────────────────────────────────── */
+
+.streaming-cursor {
+  background: var(--accent);
+  border-radius: 1px;
+  animation: cursorBlink 0.8s ease-in-out infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ─── Mobile responsive panel heights ────────────────────────── */
+
+@media (max-width: 767px) {
+  .chat-panel-mobile {
+    flex: 55 1 0% !important;
+    max-height: 55vh;
+  }
+  .map-panel-mobile {
+    flex: 45 1 0% !important;
+    min-height: 30vh;
+  }
+}
+/* ============================================================
+   SWASTHSETU — REFERENCE GLASSMORPHISM LOGIN
+   ============================================================ */
+
+.login-page {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: #fff;
+
+  /* Keeps the supplied bg-login.jpeg visible */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(7, 35, 49, 0.18),
+      rgba(12, 77, 91, 0.06)
+    );
+}
+
+.login-atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      rgba(72, 211, 255, 0.10),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(160, 255, 220, 0.10),
+      transparent 32%
+    );
+
+  mix-blend-mode: screen;
+}
+
+/* ───────── Top header ───────── */
+
+.login-topbar {
+  position: relative;
+  z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 24px 32px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.login-brand-icon {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  color: #35e6ed;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0, 122, 255, 0.36),
+      rgba(6, 182, 196, 0.32)
+    );
+
+  border: 1px solid rgba(255,255,255,0.24);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    0 0 20px rgba(34,211,238,0.20);
+}
+
+/* ───────── Main layout ───────── */
+
+.login-layout {
+  position: relative;
+
+  min-height: calc(100vh - 82px);
+
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 0.72fr)
+    minmax(390px, 540px)
+    minmax(190px, 0.72fr);
+
+  align-items: center;
+  justify-content: center;
+
+  gap: clamp(28px, 5vw, 82px);
+
+  padding:
+    10px
+    clamp(24px, 5vw, 72px)
+    50px;
+}
+
+/* ───────── Left copy ───────── */
+
+.login-left-copy {
+  justify-self: end;
+  max-width: 270px;
+  margin-top: -20px;
+
+  color: white;
+}
+
+.login-eyebrow {
+  margin-bottom: 12px;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+
+  color: rgba(255,255,255,0.65);
+}
+
+.login-left-copy h2 {
+  margin: 0;
+
+  font-size: clamp(38px, 4vw, 58px);
+  line-height: 0.99;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+
+  text-shadow:
+    0 2px 18px rgba(0,0,0,0.20);
+}
+
+.login-left-copy h2 em {
+  font-weight: 300;
+  color: rgba(231,246,255,0.86);
+}
+
+.login-copy-line {
+  width: 90px;
+  height: 2px;
+  margin: 23px 0 13px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #22d3ee,
+      #2e86f6,
+      #c084fc
+    );
+
+  box-shadow:
+    0 0 14px rgba(34,211,238,0.45);
+}
+
+.login-left-copy p {
+  margin: 0;
+
+  font-size: 12px;
+  letter-spacing: 0.02em;
+
+  color: rgba(255,255,255,0.72);
+}
+
+/* ───────── Main glass ───────── */
+
+.login-main-glass {
+  position: relative;
+  isolation: isolate;
+
+  width: 100%;
+  max-width: 540px;
+
+  padding: 34px 40px 30px;
+
+  border-radius: 32px;
+
+  /*
+   * The important change:
+   * LOW opacity + HEAVY blur = actual translucent glass.
+   */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,0.19),
+      rgba(255,255,255,0.075)
+    );
+
+  backdrop-filter:
+    blur(42px)
+    saturate(175%)
+    contrast(105%);
+
+  -webkit-backdrop-filter:
+    blur(42px)
+    saturate(175%)
+    contrast(105%);
+
+  border:
+    1px solid rgba(255,255,255,0.40);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 1px 0 0 rgba(255,255,255,0.16),
+    inset -1px 0 0 rgba(255,255,255,0.08),
+    0 30px 80px rgba(0,0,0,0.22),
+    0 10px 35px rgba(0,0,0,0.13);
+
+  overflow: hidden;
+}
+
+.login-main-glass::before {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+  z-index: -1;
+
+  border-radius: inherit;
+
+  background:
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(255,255,255,0.28),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 90% 100%,
+      rgba(34,211,238,0.12),
+      transparent 30%
+    );
+}
+
+.login-main-glass::after {
+  content: '';
+
+  position: absolute;
+  inset: 1px;
+
+  pointer-events: none;
+
+  border-radius: 31px;
+
+  border: 1px solid rgba(255,255,255,0.10);
+
+  opacity: 0.9;
+}
+
+.login-glass-highlight {
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.85),
+      transparent
+    );
+
+  filter: blur(0.4px);
+}
+
+/* ───────── Main logo ───────── */
+
+.login-main-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* ───────── Typography ───────── */
+
+.login-title-block {
+  text-align: center;
+  color: white;
+}
+
+.login-title-block h1 {
+  margin: 0;
+
+  font-size: clamp(34px, 4vw, 48px);
+  line-height: 1;
+
+  font-weight: 700;
+  letter-spacing: -0.045em;
+
+  text-shadow:
+    0 3px 20px rgba(0,0,0,0.18);
+}
+
+.login-subtitle {
+  margin: 9px 0 0;
+
+  font-size: 17px;
+  letter-spacing: 0.13em;
+
+  color: rgba(255,255,255,0.88);
+}
+
+.login-description {
+  margin: 10px 0 0;
+
+  font-size: 11px;
+
+  color: rgba(255,255,255,0.72);
+}
+
+/* ───────── Tabs ───────── */
+
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  gap: 3px;
+
+  margin: 25px 0 21px;
+
+  padding: 4px;
+
+  border-radius: 999px;
+
+  background: rgba(255,255,255,0.09);
+
+  border: 1px solid rgba(255,255,255,0.25);
+
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.login-tabs button {
+  height: 45px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: transparent;
+
+  color: rgba(255,255,255,0.70);
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.login-tabs button.active {
+  color: white;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2e86f6 0%,
+      #06b6c4 100%
+    );
+
+  box-shadow:
+    0 8px 25px rgba(0,122,255,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.28);
+}
+
+.login-tabs button:hover {
+  transform: translateY(-1px);
+}
+
+/* ───────── Form ───────── */
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-form-group label {
+  display: block;
+
+  margin: 0 0 6px 4px;
+
+  color: rgba(255,255,255,0.78);
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.login-field-icon {
+  position: absolute;
+  left: 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: rgba(255,255,255,0.72);
+
+  pointer-events: none;
+
+  z-index: 2;
+}
+
+.login-glass-input {
+  width: 100%;
+  height: 58px;
+
+  padding:
+    0
+    44px
+    0
+    47px;
+
+  box-sizing: border-box;
+
+  color: white;
+
+  font-size: 13px;
+
+  outline: none;
+
+  border-radius: 17px;
+
+  background:
+    rgba(255,255,255,0.085);
+
+  border:
+    1px solid rgba(255,255,255,0.31);
+
+  backdrop-filter:
+    blur(22px)
+    saturate(150%);
+
+  -webkit-backdrop-filter:
+    blur(22px)
+    saturate(150%);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.20),
+    inset 0 -1px 0 rgba(0,0,0,0.05);
+
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.login-glass-input::placeholder {
+  color: rgba(255,255,255,0.50);
+}
+
+.login-glass-input:focus {
+  border-color: rgba(87,225,255,0.80);
+
+  background:
+    rgba(255,255,255,0.12);
+
+  box-shadow:
+    0 0 0 3px rgba(34,211,238,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.28);
+}
+
+.login-eye {
+  position: absolute;
+  right: 13px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 6px;
+
+  border: 0;
+  background: transparent;
+
+  color: rgba(255,255,255,0.67);
+
+  cursor: pointer;
+}
+
+.login-error {
+  margin: -3px 3px 0;
+
+  font-size: 11px;
+  color: #ff8f8f;
+
+  text-shadow: 0 1px 8px rgba(0,0,0,0.20);
+}
+
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin: 0 3px;
+
+  font-size: 11px;
+}
+
+.remember-button,
+.forgot-button {
+  border: 0;
+  background: transparent;
+
+  color: rgba(255,255,255,0.78);
+
+  font-size: inherit;
+
+  cursor: pointer;
+}
+
+.remember-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remember-button > span {
+  width: 18px;
+  height: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 5px;
+
+  border: 1px solid rgba(255,255,255,0.45);
+
+  background: rgba(255,255,255,0.08);
+}
+
+.remember-button > span.checked {
+  background: #1789ff;
+  border-color: #48c9ff;
+
+  box-shadow:
+    0 0 12px rgba(23,137,255,0.35);
+}
+
+.forgot-button {
+  color: rgba(225,213,255,0.90);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-forgot-note {
+  margin: -3px 3px 0;
+
+  font-size: 10px;
+  line-height: 1.5;
+
+  color: rgba(255,255,255,0.66);
+}
+
+/* ───────── Primary CTA ───────── */
+
+.login-submit {
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  margin-top: 2px;
+
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #1978ff 0%,
+      #168fff 42%,
+      #18d5c8 100%
+    );
+
+  color: white;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 12px 32px rgba(13,130,255,0.32),
+    0 0 22px rgba(23,217,214,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    filter 0.25s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 16px 38px rgba(13,130,255,0.40),
+    0 0 28px rgba(23,217,214,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.40);
+
+  filter: brightness(1.04);
+}
+
+.login-submit:disabled {
+  cursor: wait;
+  opacity: 0.60;
+}
+
+/* ───────── Divider ───────── */
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  margin: 19px 0 13px;
+
+  color: rgba(255,255,255,0.60);
+
+  font-size: 11px;
+}
+
+.login-divider span {
+  flex: 1;
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.35)
+    );
+}
+
+.login-divider span:last-child {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,0.35),
+      transparent
+    );
+}
+
+.login-divider b {
+  font-weight: 500;
+}
+
+/* ───────── Social ───────── */
+
+.login-socials {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.login-socials button {
+  width: 48px;
+  height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  color: rgba(255,255,255,0.92);
+
+  background: rgba(255,255,255,0.09);
+
+  border: 1px solid rgba(255,255,255,0.28);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.24),
+    0 7px 20px rgba(0,0,0,0.10);
+
+  cursor: pointer;
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease;
+}
+
+.login-socials button:hover {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,0.16);
+}
+
+.google-g {
+  font-size: 20px;
+  font-weight: 700;
+
+  background:
+    linear-gradient(
+      135deg,
+      #4285f4,
+      #34a853,
+      #fbbc05,
+      #ea4335
+    );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ───────── Footer ───────── */
+
+.login-footer {
+  margin: 17px 0 0;
+
+  text-align: center;
+
+  color: rgba(255,255,255,0.70);
+
+  font-size: 11px;
+}
+
+.login-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  border: 0;
+  padding: 0;
+
+  background: transparent;
+
+  color: #41d6e8;
+
+  font-size: inherit;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+/* ───────── Emergency ───────── */
+
+.login-emergency {
+  position: fixed;
+  left: 32px;
+  bottom: 28px;
+
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  padding: 10px 17px 10px 10px;
+
+  color: white;
+  text-decoration: none;
+
+  border-radius: 22px;
+
+  background: rgba(255,255,255,0.11);
+
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+
+  border: 1px solid rgba(255,255,255,0.28);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 12px 35px rgba(0,0,0,0.13);
+}
+
+.emergency-icon {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: rgba(255,59,48,0.90);
+
+  color: white;
+
+  box-shadow:
+    0 0 20px rgba(255,59,48,0.25);
+}
+
+.login-emergency small,
+.login-emergency strong {
+  display: block;
+}
+
+.login-emergency small {
+  font-size: 10px;
+  color: rgba(255,255,255,0.70);
+}
+
+.login-emergency strong {
+  margin-top: 2px;
+
+  font-size: 14px;
+  color: #ff817b;
+}
+
+/* ───────── Privacy ───────── */
+
+.login-privacy {
+  position: fixed;
+  right: 32px;
+  bottom: 28px;
+
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 11px 16px;
+
+  color: rgba(255,255,255,0.82);
+
+  font-size: 10px;
+
+  border-radius: 999px;
+
+  background: rgba(255,255,255,0.10);
+
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+
+  border: 1px solid rgba(255,255,255,0.25);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.20),
+    0 10px 28px rgba(0,0,0,0.10);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .login-layout {
+    grid-template-columns:
+      minmax(150px, 0.45fr)
+      minmax(390px, 520px)
+      minmax(150px, 0.45fr);
+
+    gap: 25px;
+  }
+
+  .login-left-copy h2 {
+    font-size: 38px;
+  }
+}
+
+@media (max-width: 850px) {
+  .login-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    min-height: calc(100vh - 75px);
+
+    padding: 10px 20px 60px;
+    gap: 28px;
+  }
+
+  .login-left-copy {
+    justify-self: unset;
+    align-self: center;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .login-copy-line {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .login-left-copy,
+
+  .login-main-glass {
+    max-width: 500px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .login-topbar {
+    padding: 15px 16px;
+  }
+
+  .login-brand {
+    font-size: 14px;
+  }
+
+  .login-traffic-lights {
+    display: none;
+  }
+
+  .login-main-glass {
+    padding: 28px 20px 24px;
+    border-radius: 27px;
+  }
+
+  .login-main-glass::after {
+    border-radius: 26px;
+  }
+
+  .login-title-block h1 {
+    font-size: 34px;
+  }
+
+  .login-subtitle {
+    font-size: 14px;
+  }
+
+  .login-description {
+    font-size: 9px;
+  }
+
+  .login-tabs button {
+    height: 42px;
+  }
+
+  .login-emergency {
+    left: 14px;
+    bottom: 14px;
+  }
+
+  .login-privacy {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .login-privacy span {
+    display: none;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 700px) {
+  .login-main-glass {
+    padding-top: 22px;
+    padding-bottom: 20px;
+  }
+
+  .login-main-logo {
+    margin-bottom: 8px;
+  }
+
+  .login-tabs {
+    margin-top: 17px;
+    margin-bottom: 14px;
+  }
+
+  .login-glass-input {
+    height: 50px;
+  }
+
+  .login-submit {
+    height: 50px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-submit,
+  .login-tabs button,
+  .login-socials button {
+    transition: none;
+  }
+}

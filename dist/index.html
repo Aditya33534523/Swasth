@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#007aff" />
+    <title>SwasthSetu — Hospital Finder</title>
+    <style>
+      /* Prevent FOUC */
+      html { background: #d6e4f5; }
+      html.dark { background: #1a1c1e; }
+    </style>
+    <script>
+      // Apply theme class before paint to avoid FOUC
+      (function() {
+        const stored = localStorage.getItem('swasthsetu-theme');
+        if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-P6iFN42i.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CwtB458C.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
