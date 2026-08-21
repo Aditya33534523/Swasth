@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#007aff" />
@@ -13,12 +13,10 @@
     <meta name="apple-mobile-web-app-title" content="SwasthSetu" />
     <title>SwasthSetu — Hospital Finder</title>
     <style>
-      /* Prevent FOUC */
       html { background: #d6e4f5; }
       html.dark { background: #1a1c1e; }
     </style>
     <script>
-      // Apply theme class before paint to avoid FOUC
       (function() {
         const stored = localStorage.getItem('swasthsetu-theme');
         if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
