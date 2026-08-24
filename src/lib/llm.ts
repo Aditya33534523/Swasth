@@ -1,32 +1,6 @@
 import type { LLMMessage } from '../types';
-
-/**
- * Default base URL for the LLM server.
- *
- * This is a RELATIVE path ('/llm-api'), not an absolute 'http://localhost:8080'.
- * Vite's dev server proxies '/llm-api' -> 'http://localhost:8080' (see
- * vite.config.ts), forwarding the request server-side from the machine
- * running llama-server.
- *
- * Why this matters: if you hardcode 'http://localhost:8080' here, it only
- * works when the browser and llama-server are on the same machine. Open
- * the app through a Cloudflare tunnel (trycloudflare.com) from your phone
- * or another computer, and "localhost" in THAT browser means the phone's
- * own port 8080 — never your machine's — so every request fails.
- *
- * Using a relative path fixes this because the browser always calls
- * whatever origin it loaded the page from (localhost:5173 OR the tunnel
- * URL), and in both cases Vite's proxy is the one making the real
- * localhost:8080 request, from the correct machine.
- *
- * Swappable: to point at a different/remote OpenAI-compatible server
- * instead of proxying, set an absolute URL here (or pass baseUrl in
- * LLMConfig) — e.g. 'http://localhost:11434' for Ollama. Just note an
- * absolute localhost URL will break again over a tunnel for the same
- * reason described above; prefer updating the proxy target in
- * vite.config.ts if the LLM server itself moves.
- */
 const DEFAULT_BASE_URL = '/llm-api';
+const DEFAULT_MODEL = 'hf.co/ggml-org/gemma-4-E4B-it-GGUF:Q4_0';
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
@@ -52,7 +26,7 @@ export interface LLMConfig {
 }
 
 /**
- * Stream a chat completion from the local llama-server.
+ * Stream a chat completion from the configured local LLM server.
  * Uses the OpenAI-compatible /v1/chat/completions endpoint.
  *
  * Swappable: change DEFAULT_BASE_URL or pass baseUrl to point at any
@@ -66,7 +40,7 @@ export async function streamChat(
 ): Promise<void> {
   const {
     baseUrl = DEFAULT_BASE_URL,
-    model = 'gemma',
+    model = DEFAULT_MODEL,
     temperature = 1.0,
     top_p = 0.95,
     top_k = 64,
@@ -125,7 +99,7 @@ export async function streamChat(
       if (timedOut) {
         callbacks.onError(
           new Error(
-            `Timed out waiting for LLM server at ${baseUrl}. It may be overloaded or stuck — check the llama-server terminal.`,
+            `Timed out waiting for LLM server at ${baseUrl}. It may be overloaded or stuck — check the Ollama terminal.`,
           ),
         );
       } else {
@@ -135,7 +109,7 @@ export async function streamChat(
     }
     callbacks.onError(
       new Error(
-        `Cannot connect to LLM server at ${baseUrl}. Make sure llama-server is running.`,
+        `Cannot connect to LLM server at ${baseUrl}. Make sure Ollama is running.`,
       ),
     );
     return;
@@ -156,7 +130,7 @@ export async function streamChat(
   const reader = response.body?.getReader();
   if (!reader) {
     cleanup();
-    callbacks.onError(new Error('No response body from LLM server.'));
+    callbacks.onError(new Error('No response body from Ollama.'));
     return;
   }
 
@@ -225,7 +199,7 @@ export async function chatCompletion(
 ): Promise<string> {
   const {
     baseUrl = DEFAULT_BASE_URL,
-    model = 'gemma',
+    model = DEFAULT_MODEL,
     temperature = 1.0,
     top_p = 0.95,
     top_k = 64,

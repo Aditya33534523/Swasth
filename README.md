@@ -25,7 +25,7 @@ A single-page web application with a **dual-mode chat interface**: free-form AI 
 - **Smart context passing** — after a hospital search, the AI chat knows the results for follow-up questions
 
 ### Account & Data
-- Email/password registration and login (demo-grade — see Security Notes)
+- Email/password registration and login backed by the Express API
 - **Export your data** — download all chats and activity logs as JSON
 - **Delete your account** — type-to-confirm modal, permanently erases the account and every associated chat/log
 
@@ -119,7 +119,7 @@ const getHospitals = async (): Promise<Hospital[]> => {
 
 ## Security Notes
 
-Auth (`src/lib/auth.ts`) is demo-grade: passwords are stored in plaintext in `localStorage`, and there's no server-side validation of anything. This is fine for a local/single-user prototype behind a tunnel you control, but should not be treated as real authentication. A proper backend (hashed passwords, real sessions, a real database) is the natural next step before this app handles anyone's data beyond your own testing.
+The backend hashes passwords with bcrypt and authenticates API requests with JWTs. Configure a strong `JWT_SECRET` and set `FRONTEND_URL` in production to restrict CORS. The browser stores only the JWT and a cached public user profile; never commit `.env` files or expose API keys.
 
 ## Project Structure
 

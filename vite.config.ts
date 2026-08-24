@@ -12,16 +12,15 @@ export default defineConfig({
     host: true,
     allowedHosts: ['.trycloudflare.com'],
     hmr: isTunnel ? { clientPort: 443 } : true,
-    // Proxy LLM requests server-side to llama-server. This is what makes
-    // src/lib/llm.ts work identically over plain localhost AND through a
-    // Cloudflare tunnel: the browser always calls the SAME origin it
-    // loaded the page from ('/llm-api/...'), and Vite (running on your
-    // machine, next to llama-server) forwards that to localhost:8080.
-    // Without this, "localhost:8080" in the browser would resolve to
-    // whatever device opened the tunnel link, not your machine.
+    // Proxy API requests to the backend (Express on 3001)
+    // and LLM requests to Ollama (11434)
     proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
       '/llm-api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:11434',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/llm-api/, ''),
       },
@@ -29,8 +28,12 @@ export default defineConfig({
   },
   preview: {
     proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
       '/llm-api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:11434',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/llm-api/, ''),
       },

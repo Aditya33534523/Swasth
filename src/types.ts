@@ -108,7 +108,8 @@ export type ActivityAction =
   | 'emergency_trigger'
   | 'llm_stream_start'
   | 'llm_stream_complete'
-  | 'llm_error';
+  | 'llm_error'
+  | 'llm_settings_saved';
 
 export interface ActivityLog {
   id: string;

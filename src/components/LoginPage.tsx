@@ -52,28 +52,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
     setShowForgotNote(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      let result: User | string;
-
+    try {
+      let result: User;
       if (isRegister) {
-        result = register(name, email, phone, password);
+        result = await register(name, email, phone, password);
       } else {
-        result = login(email, password);
+        result = await login(email, password);
       }
-
-      if (typeof result === 'string') {
-        setError(result);
-        setLoading(false);
-      } else {
-        logActivity(isRegister ? 'register' : 'login', result.email);
-        onAuth(result);
-      }
-    }, 400);
+      logActivity(isRegister ? 'register' : 'login', result.email);
+      onAuth(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const inputProps = {
@@ -83,10 +80,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
 
   return (
     <div className="login-page">
-      {/* ───────── Background atmosphere ───────── */}
       <div className="login-atmosphere" />
-
-      {/* ───────── Top bar ───────── */}
       <header className="login-topbar">
         <div className="login-brand">
           <div className="login-traffic-lights" aria-hidden="true">
@@ -103,10 +97,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
         </div>
       </header>
 
-      {/* ───────── Main composition ───────── */}
       <main className="login-layout">
-
-        {/* Left editorial text */}
         <motion.section
           className="login-left-copy"
           initial={shouldReduceMotion ? {} : { opacity: 0, x: -24 }}
@@ -128,21 +119,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
           <p>Accessible&nbsp;&nbsp;•&nbsp;&nbsp; Smart&nbsp;&nbsp;•&nbsp;&nbsp; Caring</p>
         </motion.section>
 
-        {/* ───────── Main glass card ───────── */}
         <motion.section
           className="login-main-glass"
           initial={shouldReduceMotion ? {} : { opacity: 0, scale: 0.94, y: 24 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{
-            type: 'spring',
-            stiffness: 260,
-            damping: 26,
-          }}
+          transition={{ type: 'spring', stiffness: 260, damping: 26 }}
         >
-          {/* glossy highlight */}
           <div className="login-glass-highlight" />
-
-          {/* Logo */}
           <div className="login-main-logo">
             <div className="login-main-logo-inner">
               <Heart size={30} strokeWidth={1.5} />
@@ -158,7 +141,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
             </p>
           </div>
 
-          {/* Sign In / Register */}
           <div className="login-tabs">
             <button
               type="button"
@@ -177,9 +159,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="login-form">
-
             {isRegister && (
               <div className="login-form-group">
                 <label htmlFor="login-name">Full Name</label>
@@ -252,15 +232,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
                   type="button"
                   className="login-eye"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={
-                    showPassword ? 'Hide password' : 'Show password'
-                  }
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? (
-                    <EyeOff size={18} />
-                  ) : (
-                    <Eye size={18} />
-                  )}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </IconField>
             </div>
@@ -275,7 +249,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
               </motion.p>
             )}
 
-            {/* Remember / Forgot */}
             {!isRegister && (
               <div className="login-options">
                 <button
@@ -306,12 +279,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
               </p>
             )}
 
-            {/* Primary button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="login-submit"
-            >
+            <button type="submit" disabled={loading} className="login-submit">
               <span>
                 {loading
                   ? 'Please wait…'
@@ -319,19 +287,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
                     ? 'Create Account'
                     : 'Sign In'}
               </span>
-
               {!loading && <ArrowRight size={19} />}
             </button>
           </form>
 
-          {/* Divider */}
           <div className="login-divider">
             <span />
             <b>or</b>
             <span />
           </div>
 
-          {/* Social visual buttons */}
           <div className="login-socials">
             <button type="button" aria-label="Google login">
               <span className="google-g">G</span>
@@ -346,16 +311,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
             </button>
           </div>
 
-          {/* Footer */}
           <p className="login-footer">
             {isRegister
               ? 'Already have an account?'
               : 'New to SwasthSetu?'}{' '}
 
-            <button
-              type="button"
-              onClick={() => switchMode(!isRegister)}
-            >
+            <button type="button" onClick={() => switchMode(!isRegister)}>
               {isRegister ? 'Sign in' : 'Create Account'}
               <ArrowRight size={14} />
             </button>
@@ -363,7 +324,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
         </motion.section>
       </main>
 
-      {/* Emergency */}
       <a href="tel:108" className="login-emergency">
         <span className="emergency-icon">
           <Phone size={20} fill="currentColor" />
@@ -375,7 +335,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onAuth }) => {
         </span>
       </a>
 
-      {/* Privacy */}
       <div className="login-privacy">
         <Shield size={15} />
         <span>Your data is private &amp; secure</span>

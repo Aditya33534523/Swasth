@@ -17,15 +17,7 @@
       html { background: #d6e4f5; }
       html.dark { background: #1a1c1e; }
     </style>
-    <script>
-      // Apply theme class before paint to avoid FOUC
-      (function() {
-        const stored = localStorage.getItem('swasthsetu-theme');
-        if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

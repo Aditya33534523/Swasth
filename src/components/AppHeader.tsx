@@ -42,8 +42,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     onLogout();
   }, [onLogout]);
 
-  const handleExport = useCallback(() => {
-    const data = exportUserData();
+  const handleExport = useCallback(async () => {
+    const data = await exportUserData();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -54,9 +54,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   }, [user.id]);
 
   const handleConfirmDelete = useCallback(() => {
-    deleteAccount(user.id);
-    setShowDeleteConfirm(false);
-    onAccountDeleted();
+    deleteAccount(user.id)
+      .then(() => {
+        setShowDeleteConfirm(false);
+        onAccountDeleted();
+      })
+      .catch((err) => {
+        console.error('Failed to delete account:', err);
+        // Optionally show an error message to the user
+      });
   }, [user.id, onAccountDeleted]);
 
   const handleSectionChange = useCallback(
@@ -79,7 +85,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           <Heart size={12} style={{ color: 'var(--accent)' }} strokeWidth={2} />
         </div>
-        <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+        <span
+          className="text-sm font-semibold truncate"
+          style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}
+        >
           SwasthSetu
         </span>
       </div>
@@ -142,11 +151,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           className="flex items-center gap-1.5 pl-1.5 ml-1"
           style={{ borderLeft: '0.5px solid var(--glass-border)', height: 28 }}
         >
-          <div
-            className="avatar avatar-user w-7 h-7 text-xs"
-          >
-            {initial}
-          </div>
+          <div className="avatar avatar-user w-7 h-7 text-xs">{initial}</div>
           <button
             onClick={handleLogout}
             className="w-7 h-7 flex items-center justify-center rounded-full glass-hover cursor-pointer"

@@ -9,16 +9,9 @@ const ASSETS = [
   '/src/index.css'
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
-});
+// Intentionally a no-op service worker.
+// This app needs live llama-server and geocoding, so caching
+// would be misleading and could serve stale data.
+self.addEventListener('install', () => {});
+self.addEventListener('activate', () => {});
+self.addEventListener('fetch', () => {});
