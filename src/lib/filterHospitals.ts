@@ -2,13 +2,24 @@ import { Hospital, CardType, Coordinates, FilteredHospital } from '../types';
 import { hospitals as fallbackHospitals } from '../data/hospitals';
 
 let cachedHospitalsPromise: Promise<Hospital[]> | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
+
+export function clearHospitalsCache(): void {
+  cachedHospitalsPromise = null;
+  cacheTimestamp = 0;
+}
 
 /**
- * Fetch hospitals from the backend API, with memory caching and fallback.
+ * Fetch hospitals from the backend API, with memory caching, TTL, and fallback.
  */
 export const getHospitals = async (): Promise<Hospital[]> => {
-  if (cachedHospitalsPromise) return cachedHospitalsPromise;
+  const now = Date.now();
+  if (cachedHospitalsPromise && now - cacheTimestamp < CACHE_TTL_MS) {
+    return cachedHospitalsPromise;
+  }
 
+  cacheTimestamp = now;
   cachedHospitalsPromise = (async () => {
     try {
       const res = await fetch('/api/hospitals');
@@ -48,6 +59,9 @@ export const getHospitals = async (): Promise<Hospital[]> => {
       return fallbackHospitals;
     } catch (err) {
       console.warn('Failed to fetch hospitals from API, using fallback data:', err);
+      // Reset cache on error so next call can retry
+      cachedHospitalsPromise = null;
+      cacheTimestamp = 0;
       return fallbackHospitals;
     }
   })();

@@ -9,9 +9,8 @@
 
 export interface LLMSettings {
   /** Empty string means "use llm.ts's default (/llm-api, proxied to
-   *  localhost:8080)". Only set this to override — e.g. pointing at a
-   *  different local server like Ollama, or a remote OpenAI-compatible
-   *  endpoint. */
+   *  Ollama on localhost:11434)". Only set this to override — e.g. pointing at a
+   *  different local server or a remote OpenAI-compatible endpoint. */
   baseUrl: string;
   model: string;
 }
@@ -29,7 +28,7 @@ export function getLLMSettings(): LLMSettings {
       baseUrl: typeof parsed.baseUrl === 'string' ? parsed.baseUrl : DEFAULTS.baseUrl,
       model:
         typeof parsed.model === 'string' && parsed.model.trim()
-          ? parsed.model
+          ? parsed.model.trim()
           : DEFAULTS.model,
     };
   } catch {
@@ -49,8 +48,4 @@ export function saveLLMSettings(settings: LLMSettings): void {
 
 export function resetLLMSettings(): void {
   localStorage.removeItem(KEY);
-}
-
-export function isDefaultLLMSettings(settings: LLMSettings): boolean {
-  return settings.baseUrl.trim() === '' && settings.model.trim() === DEFAULTS.model;
 }

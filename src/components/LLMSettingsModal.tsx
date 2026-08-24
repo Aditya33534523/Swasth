@@ -14,7 +14,7 @@ interface LLMSettingsModalProps {
   onClose: () => void;
   /** Called after settings are saved, so ChatPanel can pick up the change
    *  immediately without needing a reload. */
-  onSaved: () => void;
+  onSaved?: () => void;
 }
 
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
@@ -54,7 +54,7 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({
 
   const handleSave = () => {
     saveLLMSettings(settings);
-    onSaved();
+    onSaved?.();
     onClose();
   };
 
@@ -114,9 +114,8 @@ export const LLMSettingsModal: React.FC<LLMSettingsModalProps> = ({
               </h2>
               <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
                 Leave the server URL blank to use the default — it's proxied through Vite to{' '}
-                <code>localhost:8080</code> and works over a Cloudflare Tunnel. Only set an
-                absolute URL if you're pointing at a different local server (e.g. Ollama at{' '}
-                <code>http://localhost:11434</code>) or a remote one.
+                <code>localhost:11434</code> (Ollama) and works over a Cloudflare Tunnel. Only set an
+                absolute URL if you're pointing at a different local or remote server.
               </p>
 
               <label

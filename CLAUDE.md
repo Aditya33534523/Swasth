@@ -3,7 +3,7 @@
 ## Project Overview
 
 SwasthSetu is a single-page React 18 + Vite + TypeScript web application for Indian users to:
-1. **Chat with a local AI** about medicines, health topics, government schemes (Gemma via llama-server)
+1. **Chat with a local AI** about medicines, health topics, government schemes (Gemma via Ollama)
 2. **Find nearby hospitals** that accept MAA Card / Ayushman Bharat (guided FSM flow)
 
 ## Architecture
@@ -14,7 +14,7 @@ App.tsx — shell, auth gate, theme, tab switching
 └── Authenticated app
     ├── AppHeader.tsx — logo, Chat/Map tabs, export/delete-account, theme toggle, logout
     ├── ChatPanel.tsx (activeSection === 'chat')
-    │   ├── AI Chat mode → streams from llama-server via lib/llm.ts
+    │   ├── AI Chat mode → streams from Ollama via lib/llm.ts
     │   ├── Hospital FSM mode → structured flow: card → location → map results
     │   └── ChatHistoryPanel.tsx → browse/switch/delete/start past conversations
     ├── MapPanel.tsx (activeSection === 'map')
@@ -44,40 +44,38 @@ Shared state, lifted in App.tsx:
 | `src/components/ConfirmDeleteAccountModal.tsx` | Type-to-confirm modal gating `deleteAccount()`. | Destructive and irreversible — never wire a delete action to skip this. |
 | `src/components/ErrorBoundary.tsx` | Wraps `<App />` in `main.tsx`. Catches render-time crashes app-wide. | Shows a "Try Again" screen instead of a blank white page. |
 | `src/lib/llm.ts` | Streaming fetch to `/llm-api/v1/chat/completions` (relative path, proxied — see vite.config.ts). OpenAI-compatible. | SSE parsing, `AbortController` for manual cancel, plus a connect timeout (15s) and stall timeout (30s, resets per token) so a hung server doesn't leave the UI stuck. Default sampling is `temperature=1.0, top_p=0.95, top_k=64` — Gemma 4's documented config; don't lower temperature "for factual answers", it measurably hurts this model. |
-| `src/lib/filterHospitals.ts` | Haversine distance + card type filter. **One-line swap** for real API. | `getHospitals()` is the swappable function. |
+| `src/lib/filterHospitals.ts` | Haversine distance + card type filter with in-memory TTL caching and static fallback. | `getHospitals()` is the cached fetcher with fallback. |
 | `src/lib/geocode.ts` | Nominatim pincode/city → coords. Also `getCurrentPosition()` for GPS. | No API key needed. All requests go through a shared `throttledFetch` queue enforcing Nominatim's 1 req/sec limit — don't call `fetch()` directly for geocoding. |
-| `src/lib/auth.ts` | Registration/login/session (plaintext localStorage — demo only, see below) plus `deleteAccount()`. | `deleteAccount()` sweeps every `swasthsetu/{userId}/...` key, not just the user record. |
-| `src/lib/storage.ts` | Chat session CRUD (`createChatSession`, `switchChatSession`, `deleteChatSession`, `getChatSessionList`) + activity logging + data export. | Keys are namespaced `swasthsetu/{userId}/...`. `getCurrentChatSession()` reads whichever session the `current_chat` pointer names — switching/deleting update that pointer. |
+| `src/lib/auth.ts` | Registration/login/session (JWT / SQLite API backend) plus `deleteAccount()`. | `deleteAccount()` hits `/api/me` DELETE route. |
+| `src/lib/storage.ts` | Chat session CRUD (`createChatSession`, `switchChatSession`, `deleteChatSession`, `getChatSessionList`) + activity logging + data export. | SQLite API backed with localStorage fallback. `getCurrentChatSession()` reads the active current session. |
 | `src/data/hospitals.ts` | 14 seeded hospitals (Ahmedabad, Gandhinagar, Surat, Vadodara). | Real lat/lon. Mix of MAA-only, Ayushman-only, both, neither. |
 | `src/types.ts` | All shared types. `FilteredHospital` extends `Hospital` with `distanceKm`. | `ChatMode`, `LLMMessage`, `HospitalFSMState`, `ChatSession` are used by ChatPanel/storage. |
-| `src/index.css` | CSS variables (light/dark), `.glass` material system, Leaflet overrides, streaming cursor. | **Never** stack glass-on-glass. Text on glass must use `--text-primary`. |
+| `src/index.css` | CSS variables (light/dark with `--border`), `.glass` material system, Leaflet overrides, streaming cursor. | **Never** stack glass-on-glass. Text on glass must use `--text-primary`. |
 | `src/App.tsx` | Shell layout, auth gate, theme (see below), tab switching between ChatPanel/MapPanel. | `mapAction` state batches React updates — only the last `setMapAction()` call per render cycle takes effect. |
 | `src/vite-env.d.ts` | Pulls in Vite's client types (`import.meta.env`, etc). | Required — without it, `tsc --noEmit` fails on `main.tsx`'s `import.meta.env.PROD` check. Don't delete. |
-| `public/manifest.webmanifest`, `public/sw.js` | PWA installability. | `sw.js` is intentionally a no-op network passthrough — this app needs `llama-server` and live geocoding, so a cached offline shell would be misleading, not helpful. |
+| `public/manifest.webmanifest`, `public/sw.js` | PWA installability. | `sw.js` is intentionally a no-op network passthrough — this app needs Ollama and live geocoding, so a cached offline shell would be misleading, not helpful. |
 
 ## Commands
 
 ```bash
 npm install          # install deps
-tsc --noEmit         # type-check (via node node_modules/typescript/bin/tsc --noEmit)
-npx vite build       # production build
-npm run dev           # dev server on :5173
+npm run build        # type-check and production build
+npm run dev          # dev server on :5173
 ```
 
-## LLM Server
+## LLM Server (Ollama)
 
 ```bash
-llama-server -m gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf -c 65536 -fa on --jinja --load-mode mmap --temp 1.0 --top-p 0.95 --top-k 64 -t 4 -np 1 -ngl 99
+ollama run gemma:2b
+# or run any OpenAI-compatible Ollama model (e.g. gemma:7b, llama3)
 ```
-- `UD-Q4_K_XL` is currently the highest-accuracy quant available for the E4B QAT weights (the repo only ships `UD-Q2_K_XL` and `UD-Q4_K_XL` for the actual model — `Q8_0`/`F16` variants in that repo are for a small speculative-decoding drafter, not the main model).
-- No `-ctv`/`-ctk` KV-cache quantization — left at the f16 default for better long-context accuracy. Only add `-ctv q4_0 -ctk q4_0` back if you're memory-constrained (e.g. Apple Silicon unified memory) and need it to fit at this context length; quantizing the KV cache costs some accuracy but a model that has to swap/truncate mid-context is worse.
-- Sampling (`temp 1.0 / top-p 0.95 / top-k 64`) matches Gemma 4's documented recommended config — don't lower temperature expecting more "factual" output; it's tuned around this setting.
-- Endpoint: `http://localhost:8080/v1/chat/completions`, OpenAI-compatible.
-- The frontend never calls `localhost:8080` directly — see "Accessing over Cloudflare Tunnel" below.
+- Endpoint: `http://localhost:11434/v1/chat/completions`, OpenAI-compatible.
+- Default port: `11434`.
+- The frontend never calls `localhost:11434` directly — see "Accessing over Cloudflare Tunnel" below.
 
 ### Accessing over Cloudflare Tunnel
 
-`src/lib/llm.ts`'s `DEFAULT_BASE_URL` is `/llm-api` (relative), and `vite.config.ts` proxies `/llm-api` → `http://localhost:8080` server-side. This is required, not optional, for tunnel access: to serve the app to another device, run `llama-server` and `npm run dev` on the same machine, then point cloudflared at the Vite dev server's port (5173) — **one tunnel**, not two. The browser on the other device only ever talks to that one tunnel URL; Vite does the real `localhost:8080` call from your machine, where "localhost" correctly means llama-server. Do not change `DEFAULT_BASE_URL` to an absolute `http://localhost:8080` — that only works when the browser and llama-server are the same machine, and silently breaks for anyone using the tunnel.
+`src/lib/llm.ts`'s `DEFAULT_BASE_URL` is `/llm-api` (relative), and `vite.config.ts` (and Express in production) proxies `/llm-api` → `http://localhost:11434` server-side. This is required for tunnel access: to serve the app to another device, run Ollama and `npm run dev` (or `node server/index.js`) on the same machine, then point cloudflared at the frontend server's port (5173) — **one tunnel**, not two. The browser on the other device only ever talks to that one tunnel URL; Vite / Express makes the real `localhost:11434` call from your machine, where "localhost" correctly means Ollama. Do not change `DEFAULT_BASE_URL` to an absolute `http://localhost:11434` — that only works when the browser and Ollama are the same machine, and silently breaks for anyone using the tunnel.
 
 ## Design System — Liquid Glass Rules
 
@@ -101,7 +99,7 @@ Only `toggleTheme()` writes to `localStorage`. This split is what lets the app t
 
 ## Common Pitfalls
 
-- **LLM server offline**: ChatPanel shows an error (with the actual llama-server command as a hint) but the hospital finder still works
+- **LLM server offline**: ChatPanel shows an error (with the Ollama command as a hint) but the hospital finder still works
 - **LLM server hung/unresponsive**: `streamChat()` has a 15s connect timeout and 30s stall timeout (resets per token) — after that it surfaces an error instead of leaving the UI stuck on "generating" forever
 - **Geolocation denied**: Falls back to pincode/city input
 - **Nominatim rate limiting**: all geocoding calls go through a shared throttle queue (1.1s spacing) in `geocode.ts` — don't bypass it with a direct `fetch()`
@@ -134,15 +132,9 @@ When the user performs a hospital search (FSM mode):
 - Once the first token arrives (`streamingText` has content), the dots are replaced with the streaming text bubble and blinking cursor
 - This prevents a "silent waiting" period of up to 15 seconds (the connect timeout) — users see feedback immediately after hitting Send
 
-## Known Minor Issues (Tracked but Lower Priority)
-
-1. **Message persistence frequency**: Every new message in a conversation triggers a full `GET` (to load current session) + `PUT` (to resend entire message history). This is fine for a demo but will need batching/debouncing as conversations grow long.
-
-2. **Glass-on-glass overlay rule**: The documented "never stack glass on glass" rule is violated by `ChatHistoryPanel`, `LLMSettingsModal`, and `ConfirmDeleteAccountModal` — all are `glass-strong` popovers rendered on top of the main app's `glass` shell/chat panel. This may look acceptable in practice due to the blur/opacity difference, but it contradicts the stated design rule.
-
 ## Testing Without LLM
 
-The hospital finder works fully without llama-server. Only AI chat mode requires it. To test hospital flow, click "Find Hospitals" in the chat header or the 🏥 quick reply.
+The hospital finder works fully without Ollama. Only AI chat mode requires it. To test hospital flow, click "Find Hospitals" in the chat header or the 🏥 quick reply.
 
 ## Emergency Detection
 

@@ -5,8 +5,8 @@ import { ChatPanel } from './components/ChatPanel';
 import { MapPanel } from './components/MapPanel';
 import { HospitalSheet } from './components/HospitalSheet';
 import { getCurrentUser, logout as authLogout } from './lib/auth';
-import { logActivity, createChatSession, getCurrentChatSession, saveChatMessages } from './lib/storage';
-import type { User, MapAction, FilteredHospital, ChatMessage, LLMMessage } from './types';
+import { logActivity, createChatSession, getCurrentChatSession } from './lib/storage';
+import type { User, MapAction, FilteredHospital } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -20,7 +20,7 @@ export default function App() {
   const [selectedHospital, setSelectedHospital] = useState<FilteredHospital | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ─── Auth ──────────────────────────────────────────────
+  // ─── Auth ───────────────────────────────────────────────
   const didAuthInitRef = useRef(false);
   useEffect(() => {
     if (didAuthInitRef.current) return; // StrictMode double-invokes this in dev
@@ -28,52 +28,25 @@ export default function App() {
 
     (async () => {
       const u = await getCurrentUser();
+      setUser(u);
       if (u) {
-        setUser(u);
-        localStorage.setItem('swasthsetu-user-cache', JSON.stringify(u));
-        logActivity('login', u.email);
-        const existing = await getCurrentChatSession();
-        if (!existing) {
-          await createChatSession();
-        }
+        // Ensure an active chat session exists on login/restore
+        const current = await getCurrentChatSession();
+        if (!current) await createChatSession();
       }
       setIsLoading(false);
     })();
   }, []);
 
-  // ─── Theme ─────────────────────────────────────────────
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark]);
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      if (localStorage.getItem('swasthsetu-theme') === null) {
-        setIsDark(e.matches);
-      }
-    };
-    media.addEventListener('change', handleChange);
-    return () => media.removeEventListener('change', handleChange);
+  const handleAuth = useCallback(async (newUser: User) => {
+    setUser(newUser);
+    const current = await getCurrentChatSession();
+    if (!current) await createChatSession();
+    logActivity('login', 'User logged in');
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    logActivity('theme_toggle', isDark ? 'dark → light' : 'light → dark');
-    setIsDark((prev) => {
-      const next = !prev;
-      localStorage.setItem('swasthsetu-theme', next ? 'dark' : 'light');
-      return next;
-    });
-  }, [isDark]);
-
-  const handleAuth = useCallback(async (u: User) => {
-    localStorage.setItem('swasthsetu-user-cache', JSON.stringify(u));
-    setUser(u);
-    await createChatSession();
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    await authLogout();
+  const handleLogout = useCallback(() => {
+    authLogout();
     setUser(null);
     setActiveSection('chat');
     setMapAction(null);
@@ -100,13 +73,31 @@ export default function App() {
     if (h) logActivity('hospital_sheet_open', h.name);
   }, []);
 
-  // ─── Chat persistence callback (from ChatPanel) ──────────
-  const handleMessagesChange = useCallback(
-    (messages: ChatMessage[], llmContext?: LLMMessage[]) => {
-      saveChatMessages(messages, llmContext).catch(console.error);
-    },
-    [],
-  );
+  // ─── Theme toggle ───────────────────────────────────────
+  const toggleTheme = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
+      localStorage.setItem('swasthsetu-theme', next ? 'dark' : 'light');
+      return next;
+    });
+  }, []);
+
+  // Sync `.dark` class to <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
+
+  // Follow OS theme ONLY if the user hasn't chosen explicitly
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('swasthsetu-theme')) {
+        setIsDark(e.matches);
+      }
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   if (isLoading) {
     return (
@@ -151,7 +142,6 @@ export default function App() {
                 userName={user.name}
                 onMapAction={handleMapAction}
                 onHospitalSelect={handleHospitalSelect}
-                onMessagesChange={handleMessagesChange}
               />
             ) : (
               <MapPanel

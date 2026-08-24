@@ -21,7 +21,6 @@ interface ChatPanelProps {
   userName: string;
   onMapAction: (action: MapAction) => void;
   onHospitalSelect: (h: FilteredHospital | null) => void;
-  onMessagesChange?: (messages: ChatMessageType[], llmContext?: LLMMessage[]) => void;
 }
 
 let msgCounter = 0;
@@ -69,7 +68,7 @@ async function processImageFile(file: File): Promise<string> {
   });
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onHospitalSelect, onMessagesChange }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onHospitalSelect }) => {
   const [mode, setMode] = useState<ChatMode>('ai_chat');
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputText, setInputText] = useState('');
@@ -108,7 +107,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
     lastKnownCoordsRef,
   });
 
-  const { fsmState, startHospitalSearch, handleFSMInput, reset: resetFSM } = useHospitalFSM({
+  const { startHospitalSearch, handleFSMInput, reset: resetFSM } = useHospitalFSM({
     addBotMessage,
     addUserMessage,
     onMapAction,
@@ -153,9 +152,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
   useEffect(() => {
     if (messages.length > 0) {
       saveChatMessages(messages, llmMessagesRef.current).catch(console.error);
-      onMessagesChange?.(messages, llmMessagesRef.current);
     }
-  }, [messages, onMessagesChange]);
+  }, [messages]);
 
   // ─── Chat history handlers ───────────────────────────────
   const resetSessionUiState = useCallback(() => {
@@ -241,6 +239,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) {
+          e.preventDefault();
           try {
             setIsProcessingImage(true);
             const dataUrl = await processImageFile(file);

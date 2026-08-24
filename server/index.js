@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { Readable } = require('stream');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
@@ -72,7 +73,24 @@ db.exec(`
     timestamp INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
-  CREATE TABLE IF NOT EXISTS hospitals (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    address TEXT,\n    district TEXT,\n    state TEXT,\n    pincode TEXT,\n    lat REAL,\n    lon REAL,\n    phone TEXT,\n    specialities TEXT,\n    acceptsMaa INTEGER DEFAULT 0,\n    acceptsAyushman INTEGER DEFAULT 0,\n    emergency INTEGER DEFAULT 0,\n    source TEXT,\n    verifiedOn TEXT\n  );\n`);
+  CREATE TABLE IF NOT EXISTS hospitals (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT,
+    district TEXT,
+    state TEXT,
+    pincode TEXT,
+    lat REAL,
+    lon REAL,
+    phone TEXT,
+    specialities TEXT,
+    acceptsMaa INTEGER DEFAULT 0,
+    acceptsAyushman INTEGER DEFAULT 0,
+    emergency INTEGER DEFAULT 0,
+    source TEXT,
+    verifiedOn TEXT
+  );
+`);
 
 function parseCoordinates(value) {
   const numbers = String(value || '').match(/-?\d+(?:\.\d+)?/g);
@@ -228,7 +246,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ─── Auth Routes ─────────────────────────────────────────
+// ─── Auth Routes ───────────────────────────────────────────
 app.post('/api/auth/register', (req, res) => {
   const { name, email, phone, password } = req.body;
   if (!name || !email || !phone || !password) {
@@ -273,7 +291,7 @@ app.delete('/api/me', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Session Routes ──────────────────────────────────────
+// ─── Session Routes ────────────────────────────────────────
 app.get('/api/sessions', authMiddleware, (req, res) => {
   const rows = db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY updated_at DESC').all(req.userId);
   res.json({ sessions: rows });
@@ -319,7 +337,7 @@ app.put('/api/sessions/:id/current', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Activity Routes ─────────────────────────────────────
+// ─── Activity Routes ───────────────────────────────────────
 app.get('/api/activities', authMiddleware, (req, res) => {
   const rows = db.prepare('SELECT * FROM activities WHERE user_id = ? ORDER BY timestamp DESC LIMIT 500').all(req.userId);
   res.json({ activities: rows });
@@ -335,7 +353,7 @@ app.post('/api/activities', authMiddleware, (req, res) => {
   res.status(201).json({ activity: { id, user_id: req.userId, action, details, timestamp } });
 });
 
-// ─── Hospital Data ───────────────────────────────────────
+// ─── Hospital Data ─────────────────────────────────────────
 
 // Serve hospitals from DB, fallback to static JSON
 app.get('/api/hospitals', (req, res) => {
@@ -435,7 +453,7 @@ app.post('/api/hospitals/sync-datagov', authMiddleware, async (req, res) => {
   }
 });
 
-// ─── LLM Proxy ───────────────────────────────────────────
+// ─── LLM Proxy ─────────────────────────────────────────────
 app.use('/llm-api', async (req, res) => {
   const target = `http://localhost:11434${req.originalUrl.replace('/llm-api', '')}`;
   try {
@@ -445,27 +463,52 @@ app.use('/llm-api', async (req, res) => {
       body: req.method === 'POST' ? JSON.stringify(req.body) : undefined,
     });
     res.status(response.status);
+
+    const ignoredHeaders = new Set(['transfer-encoding', 'connection', 'keep-alive', 'content-length', 'content-encoding']);
     for (const [key, value] of response.headers.entries()) {
-      res.setHeader(key, value);
-    }
-    if (response.body) {
-      const reader = response.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(value);
+      if (!ignoredHeaders.has(key.toLowerCase())) {
+        res.setHeader(key, value);
       }
-      res.end();
+    }
+
+    if (response.body) {
+      if (typeof Readable.fromWeb === 'function') {
+        try {
+          Readable.fromWeb(response.body).pipe(res);
+          return;
+        } catch (pipeErr) {
+          console.warn('Readable.fromWeb pipe failed, using stream reader fallback:', pipeErr);
+        }
+      }
+
+      if (typeof response.body.getReader === 'function') {
+        const reader = response.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+        res.end();
+      } else if (Symbol.asyncIterator in response.body) {
+        for await (const chunk of response.body) {
+          res.write(chunk);
+        }
+        res.end();
+      } else {
+        res.end();
+      }
     } else {
       res.end();
     }
   } catch (err) {
     console.error('LLM proxy error:', err);
-    res.status(502).json({ error: 'LLM server unreachable' });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'LLM server unreachable' });
+    }
   }
 });
 
-// ─── Static Frontend Serving ─────────────────────────────
+// ─── Static Frontend Serving ───────────────────────────────
 const distPath = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
