@@ -110,6 +110,36 @@ Only `toggleTheme()` writes to `localStorage`. This split is what lets the app t
 - **Switching/starting/deleting chat sessions**: always goes through `resetSessionUiState()` in `ChatPanel.tsx` — it aborts any in-flight stream and resets FSM/map/hospital-selection state, so leftover state from one conversation can't bleed into another
 - **Account deletion**: `deleteAccount()` in `auth.ts` removes the user record AND sweeps every `swasthsetu/{userId}/...` localStorage key (all sessions, all activity logs) — it's not just profile deletion
 
+## Confirmed Architecture & Behavior
+
+### Session Switching Isolation
+`resetSessionUiState()` in `ChatPanel.tsx` is the gate for all session transitions (switch/new/delete). It:
+1. Calls `stopStreaming()` to cancel any in-flight LLM request
+2. Calls `resetFSM()` to clear hospital FSM state
+3. Clears `selectedImage` (attachment preview)
+4. Clears `lastKnownCoordsRef` (coordinates used for emergency fallback)
+5. Triggers `onMapAction({ type: 'clear_markers' })` to wipe the map
+
+This ensures one conversation's partial state (mid-stream response, incomplete hospital search, selected hospital) never bleeds into the next one.
+
+### Emergency Location Tracking
+When the user performs a hospital search (FSM mode):
+- `useHospitalFSM` hook calls `onLocationUpdate({ lat, lon })` after geolocation succeeds
+- This callback in `ChatPanel.tsx` writes into `lastKnownCoordsRef`
+- When an emergency is detected (in AI chat mode), `EMERGENCY_RE` triggers and uses those coords to find the nearest hospital
+- This allows the app to respond with an emergency hospital location even though the emergency detection happens in a different part of the flow
+
+### Typing Indicator UX
+- While `isStreaming` is true and the LLM hasn't sent the first token yet (`!streamingText`), the UI shows three pulsing dots
+- Once the first token arrives (`streamingText` has content), the dots are replaced with the streaming text bubble and blinking cursor
+- This prevents a "silent waiting" period of up to 15 seconds (the connect timeout) — users see feedback immediately after hitting Send
+
+## Known Minor Issues (Tracked but Lower Priority)
+
+1. **Message persistence frequency**: Every new message in a conversation triggers a full `GET` (to load current session) + `PUT` (to resend entire message history). This is fine for a demo but will need batching/debouncing as conversations grow long.
+
+2. **Glass-on-glass overlay rule**: The documented "never stack glass on glass" rule is violated by `ChatHistoryPanel`, `LLMSettingsModal`, and `ConfirmDeleteAccountModal` — all are `glass-strong` popovers rendered on top of the main app's `glass` shell/chat panel. This may look acceptable in practice due to the blur/opacity difference, but it contradicts the stated design rule.
+
 ## Testing Without LLM
 
 The hospital finder works fully without llama-server. Only AI chat mode requires it. To test hospital flow, click "Find Hospitals" in the chat header or the 🏥 quick reply.

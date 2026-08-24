@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Bot } from 'lucide-react';
+import { Bot, X } from 'lucide-react';
 import { QuickReplies } from './QuickReplies';
 import type { ChatMessage as ChatMessageType } from '../types';
 
@@ -97,6 +97,7 @@ function formatTime(ts: number): string {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, userName, onQuickReply }) => {
   const shouldReduceMotion = useReducedMotion();
+  const [showFullImage, setShowFullImage] = useState(false);
   const isBot = message.role === 'bot' || message.role === 'system';
   const time = useMemo(() => formatTime(message.timestamp), [message.timestamp]);
   const renderedText = useMemo(() => renderMarkdown(message.text), [message.text]);
@@ -106,7 +107,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, userName, onQ
 
   return (
     <motion.div
-      className={`flex flex-col ${isBot ? 'items-start' : 'items-end'} mb-4`}  // more space between messages
+      className={`flex flex-col ${isBot ? 'items-start' : 'items-end'} mb-4`}
       initial={shouldReduceMotion ? {} : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -138,12 +139,46 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, userName, onQ
           letterSpacing: '-0.01em',
         }}
       >
-        <div>{renderedText}</div>
+        {message.image && (
+          <div className="mb-2">
+            <img
+              src={message.image}
+              alt="Uploaded prescription or medicine"
+              className="rounded-lg max-h-56 max-w-full object-cover cursor-pointer hover:opacity-90 transition-opacity border border-white/20"
+              onClick={() => setShowFullImage(true)}
+            />
+          </div>
+        )}
+
+        {message.text ? <div>{renderedText}</div> : null}
 
         {isBot && message.quickReplies && onQuickReply && (
           <QuickReplies replies={message.quickReplies} onSelect={onQuickReply} />
         )}
       </div>
+
+      {/* Lightbox modal for viewing image full size */}
+      {showFullImage && message.image && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowFullImage(false)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh]">
+            <button
+              onClick={() => setShowFullImage(false)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 p-1 cursor-pointer"
+              aria-label="Close preview"
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={message.image}
+              alt="Full view"
+              className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

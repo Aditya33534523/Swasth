@@ -4,12 +4,12 @@ import { streamChat } from '../lib/llm';
 import { getLLMSettings } from '../lib/llmSettings';
 import { logActivity } from '../lib/storage';
 import { filterHospitals } from '../lib/filterHospitals';
-import { EMERGENCY_RE, SYSTEM_PROMPT } from '../constants/emergency';
+import { EMERGENCY_RE } from '../constants/emergency';
 import type { LLMMessage, MapAction, FilteredHospital } from '../types';
 
 interface UseAIStreamOptions {
   llmMessagesRef: React.MutableRefObject<LLMMessage[]>;
-  addUserMessage: (text: string) => void;
+  addUserMessage: (text: string, image?: string) => void;
   addBotMessage: (text: string, quickReplies?: string[]) => Promise<void>;
   onMapAction: (action: MapAction) => void;
   onHospitalSelect: (h: FilteredHospital | null) => void;
@@ -69,21 +69,35 @@ export function useAIStream({
   );
 
   const handleLLMSend = useCallback(
-    async (text: string) => {
+    async (text: string, imageBase64?: string) => {
       if (isStreaming) return;
 
-      if (EMERGENCY_RE.test(text)) {
-        addUserMessage(text);
-        await handleEmergency(text);
+      const userText = text.trim();
+      const promptText = userText || (imageBase64 ? 'Please analyze this image, read any medicine/prescription/health details, and explain clearly.' : '');
+      if (!promptText && !imageBase64) return;
+
+      if (EMERGENCY_RE.test(promptText)) {
+        addUserMessage(promptText, imageBase64);
+        await handleEmergency(promptText);
         return;
       }
 
-      addUserMessage(text);
+      addUserMessage(userText, imageBase64);
       setIsStreaming(true);
       setStreamingText('');
-      logActivity('message_sent', text.slice(0, 100));
+      logActivity('message_sent', (userText || (imageBase64 ? '[Image attachment]' : '')).slice(0, 100));
 
-      llmMessagesRef.current.push({ role: 'user', content: text });
+      if (imageBase64) {
+        llmMessagesRef.current.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: promptText },
+            { type: 'image_url', image_url: { url: imageBase64 } },
+          ],
+        });
+      } else {
+        llmMessagesRef.current.push({ role: 'user', content: promptText });
+      }
 
       const controller = new AbortController();
       abortRef.current = controller;

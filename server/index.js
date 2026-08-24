@@ -14,6 +14,9 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const DATAGOVINDIA_API_KEY = process.env.DATAGOVINDIA_API_KEY; // optional
 
+// Trust first proxy (Cloudflare tunnel / Vite reverse proxy)
+app.set('trust proxy', 1);
+
 const frontendUrl = process.env.FRONTEND_URL;
 app.use(cors(frontendUrl ? { origin: frontendUrl } : undefined));
 app.use(helmet({
@@ -31,10 +34,11 @@ app.use(express.json());
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 30,
   message: { error: 'Too many attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
 });
 app.use('/api/auth', authLimiter);
 
@@ -42,7 +46,33 @@ const db = new Database(path.join(__dirname, 'swasthsetu.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    email TEXT UNIQUE NOT NULL,\n    phone TEXT NOT NULL,\n    password_hash TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  );\n  CREATE TABLE IF NOT EXISTS sessions (\n    id TEXT PRIMARY KEY,\n    user_id TEXT NOT NULL,\n    messages TEXT NOT NULL,\n    llm_context TEXT NOT NULL,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL,\n    current INTEGER DEFAULT 0,\n    FOREIGN KEY (user_id) REFERENCES users(id)\n  );\n  CREATE TABLE IF NOT EXISTS activities (\n    id TEXT PRIMARY KEY,\n    user_id TEXT NOT NULL,\n    action TEXT NOT NULL,\n    details TEXT DEFAULT '',\n    timestamp INTEGER NOT NULL,\n    FOREIGN KEY (user_id) REFERENCES users(id)\n  );\n  CREATE TABLE IF NOT EXISTS hospitals (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    address TEXT,\n    district TEXT,\n    state TEXT,\n    pincode TEXT,\n    lat REAL,\n    lon REAL,\n    phone TEXT,\n    specialities TEXT,\n    acceptsMaa INTEGER DEFAULT 0,\n    acceptsAyushman INTEGER DEFAULT 0,\n    emergency INTEGER DEFAULT 0,\n    source TEXT,\n    verifiedOn TEXT\n  );\n`);
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    phone TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    messages TEXT NOT NULL,
+    llm_context TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    current INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS activities (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    details TEXT DEFAULT '',
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS hospitals (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    address TEXT,\n    district TEXT,\n    state TEXT,\n    pincode TEXT,\n    lat REAL,\n    lon REAL,\n    phone TEXT,\n    specialities TEXT,\n    acceptsMaa INTEGER DEFAULT 0,\n    acceptsAyushman INTEGER DEFAULT 0,\n    emergency INTEGER DEFAULT 0,\n    source TEXT,\n    verifiedOn TEXT\n  );\n`);
 
 function parseCoordinates(value) {
   const numbers = String(value || '').match(/-?\d+(?:\.\d+)?/g);
@@ -103,12 +133,8 @@ function importHospitalSourceDb() {
         const nameAndCare = `${row.Hospital_Name} ${row.Hospital_Care_Type || ''} ${row.Hospital_Category || ''}`;
         const isPublicOrGov = /public|government|govt|civil|gmers|municipal|community health|primary health|district hospital|general hospital|medical college|trust/i.test(nameAndCare);
 
-        // Ayushman Bharat (PM-JAY) is national: public/government and majority of empanelled facilities accept it
         const acceptsAyushman = (isPublicOrGov || (row.Sr_No % 4 !== 0)) ? 1 : 0;
-
-        // Mukhyamantri Amrutam (MAA) is Gujarat state scheme
         const acceptsMaa = (isGujarat && (isPublicOrGov || (row.Sr_No % 3 !== 0))) ? 1 : 0;
-
         const isEmergency = /yes|available|24|emergency|trauma/i.test(row.Emergency_Services || '') ||
           (row.Emergency_Num && row.Emergency_Num !== '0') ||
           (row.Ambulance_Phone_No && row.Ambulance_Phone_No !== '0') ||
@@ -380,7 +406,6 @@ app.post('/api/hospitals/sync-datagov', authMiddleware, async (req, res) => {
     const data = await response.json();
     const records = data.records || [];
 
-    // Map records to hospital schema (adjust keys based on the dataset)
     const upsert = db.prepare(`
       INSERT OR REPLACE INTO hospitals (id, name, address, district, state, pincode, lat, lon, phone, specialities, source, verifiedOn)
       VALUES (@id, @name, @address, @district, @state, @pincode, @lat, @lon, @phone, @specialities, 'data_gov_in', @verifiedOn)
@@ -411,20 +436,33 @@ app.post('/api/hospitals/sync-datagov', authMiddleware, async (req, res) => {
 });
 
 // ─── LLM Proxy ───────────────────────────────────────────
-app.use('/llm-api', (req, res) => {
+app.use('/llm-api', async (req, res) => {
   const target = `http://localhost:11434${req.originalUrl.replace('/llm-api', '')}`;
-  fetch(target, {
-    method: req.method,
-    headers: { 'Content-Type': 'application/json' },
-    body: req.method === 'POST' ? JSON.stringify(req.body) : undefined,
-  })
-    .then((response) => {
-      res.status(response.status);
-      response.body.pipe(res);
-    })
-    .catch((err) => {
-      res.status(502).json({ error: 'LLM server unreachable' });
+  try {
+    const response = await fetch(target, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: req.method === 'POST' ? JSON.stringify(req.body) : undefined,
     });
+    res.status(response.status);
+    for (const [key, value] of response.headers.entries()) {
+      res.setHeader(key, value);
+    }
+    if (response.body) {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+      res.end();
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    console.error('LLM proxy error:', err);
+    res.status(502).json({ error: 'LLM server unreachable' });
+  }
 });
 
 // ─── Static Frontend Serving ─────────────────────────────

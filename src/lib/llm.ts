@@ -44,7 +44,7 @@ export async function streamChat(
     temperature = 1.0,
     top_p = 0.95,
     top_k = 64,
-    maxTokens = 4096,
+    maxTokens = 16384,
     connectTimeoutMs = 15000,
     stallTimeoutMs = 30000,
   } = config;
@@ -203,7 +203,7 @@ export async function chatCompletion(
     temperature = 1.0,
     top_p = 0.95,
     top_k = 64,
-    maxTokens = 4096,
+    maxTokens = 16384,
   } = config;
 
   const url = `${baseUrl}/v1/chat/completions`;

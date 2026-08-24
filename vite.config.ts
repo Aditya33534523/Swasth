@@ -23,6 +23,13 @@ export default defineConfig({
         target: 'http://localhost:11434',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/llm-api/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            // Remove browser origin/referer so Ollama's local CORS filter doesn't reject Cloudflare Tunnel requests with 403
+            proxyReq.removeHeader('origin');
+            proxyReq.removeHeader('referer');
+          });
+        },
       },
     },
   },
@@ -36,6 +43,12 @@ export default defineConfig({
         target: 'http://localhost:11434',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/llm-api/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('origin');
+            proxyReq.removeHeader('referer');
+          });
+        },
       },
     },
   },

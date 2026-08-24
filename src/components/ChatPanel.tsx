@@ -1,6 +1,6 @@
 // src/components/ChatPanel.tsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Send, Square, MessageSquare, Search, Bot, Mic, History, Settings } from 'lucide-react';
+import { Send, Square, MessageSquare, Search, Bot, Mic, History, Settings, ImagePlus, X, Loader2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { LLMSettingsModal } from './LLMSettingsModal';
@@ -24,20 +24,58 @@ interface ChatPanelProps {
   onMessagesChange?: (messages: ChatMessageType[], llmContext?: LLMMessage[]) => void;
 }
 
-type TypingIndicator = { id: string; role: 'typing' };
-
 let msgCounter = 0;
 function uid(): string {
   return `msg_${Date.now()}_${++msgCounter}`;
 }
 
 const GREETING_TEXT =
-  "Namaste 🙏 I'm SwasthSetu, your AI health assistant. I can help you with:\n\n• **Medicine information** — uses, side effects, interactions\n• **Hospital search** — find nearby scheme hospitals on the map\n• **Health guidance** — first aid, when to see a doctor\n\nAsk me anything, or tap below to find hospitals.";
+  "Namaste 🙏 I'm SwasthSetu, your AI health assistant. I can help you with:\n\n• **Medicine information** — uses, side effects, interactions\n• **Prescription & report analysis** — attach a photo to understand results\n• **Hospital search** — find nearby scheme hospitals on the map\n• **Health guidance** — first aid, when to see a doctor\n\nAsk me anything, attach a medicine/report photo, or tap below to find hospitals.";
+
+async function processImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1280;
+        let { width, height } = img;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onHospitalSelect, onMessagesChange }) => {
   const [mode, setMode] = useState<ChatMode>('ai_chat');
-  const [messages, setMessages] = useState<(ChatMessageType | TypingIndicator)[]>([]);
+  const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const llmMessagesRef = useRef<LLMMessage[]>([{ role: 'system', content: SYSTEM_PROMPT }]);
   const lastKnownCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -49,15 +87,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
 
   const addBotMessage = useCallback(async (text: string, quickReplies?: string[]) => {
     setMessages((prev) => [
-      ...prev.filter((m) => m.role !== 'typing'),
+      ...prev,
       { id: uid(), role: 'bot', text, quickReplies, timestamp: Date.now() } as ChatMessageType,
     ]);
   }, []);
 
-  const addUserMessage = useCallback((text: string) => {
+  const addUserMessage = useCallback((text: string, image?: string) => {
     setMessages((prev) => [
-      ...prev.filter((m) => m.role !== 'typing'),
-      { id: uid(), role: 'user', text, timestamp: Date.now() } as ChatMessageType,
+      ...prev,
+      { id: uid(), role: 'user', text, image, timestamp: Date.now() } as ChatMessageType,
     ]);
   }, []);
 
@@ -82,14 +120,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
     },
   });
 
-  // ─── Auto-scroll ─────────────────────────
+  // ─── Auto-scroll ─────────────────────────────────────────
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isStreaming, streamingText]);
 
-  // ─── Load saved chat on mount ─────────────────────────────
+  // ─── Load saved chat on mount ────────────────────────────
   const didInitRef = useRef(false);
   useEffect(() => {
     if (didInitRef.current) return;
@@ -113,18 +151,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
 
   // ─── Persist messages on change ──────────────────────────
   useEffect(() => {
-    const real = messages.filter((m) => m.role !== 'typing') as ChatMessageType[];
-    if (real.length > 0) {
-      saveChatMessages(real, llmMessagesRef.current).catch(console.error);
-      onMessagesChange?.(real, llmMessagesRef.current);
+    if (messages.length > 0) {
+      saveChatMessages(messages, llmMessagesRef.current).catch(console.error);
+      onMessagesChange?.(messages, llmMessagesRef.current);
     }
   }, [messages, onMessagesChange]);
 
-  // ─── Chat history handlers ─────────────────────────────
+  // ─── Chat history handlers ───────────────────────────────
   const resetSessionUiState = useCallback(() => {
     stopStreaming();
     setMode('ai_chat');
     resetFSM();
+    setSelectedImage(null);
     lastKnownCoordsRef.current = null;
     onMapAction({ type: 'clear_markers' });
     onHospitalSelect(null);
@@ -179,12 +217,52 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
     }
   }, [activeSessionId, handleSelectSession, handleNewChat]);
 
-  // ─── Unified input handler ─────────────────────────────
+  // ─── Image attachment handlers ───────────────────────────
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsProcessingImage(true);
+      const dataUrl = await processImageFile(file);
+      setSelectedImage(dataUrl);
+      if (mode !== 'ai_chat') setMode('ai_chat');
+    } catch (err) {
+      console.error('Failed to process image:', err);
+    } finally {
+      setIsProcessingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          try {
+            setIsProcessingImage(true);
+            const dataUrl = await processImageFile(file);
+            setSelectedImage(dataUrl);
+            if (mode !== 'ai_chat') setMode('ai_chat');
+          } catch (err) {
+            console.error('Failed to process pasted image:', err);
+          } finally {
+            setIsProcessingImage(false);
+          }
+          break;
+        }
+      }
+    }
+  };
+
+  // ─── Unified input handler ───────────────────────────────
   const handleQuickReply = useCallback(
     (reply: string) => {
       // Mode-switching quick replies
       if (reply.includes('Find Hospitals') || reply === '🏥 Find Hospitals') {
-        setMode('hospital_search'); // FIXED: Ensure we switch to hospital mode!
+        setMode('hospital_search');
         startHospitalSearch();
         return;
       }
@@ -208,19 +286,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = inputText.trim();
-    if (!text || isStreaming) return;
+    const image = selectedImage;
+    if ((!text && !image) || isStreaming) return;
+
     setInputText('');
+    setSelectedImage(null);
 
     if (mode === 'hospital_search') {
       handleFSMInput(text);
     } else {
-      handleLLMSend(text);
+      handleLLMSend(text, image || undefined);
     }
   };
 
   // ─── Render ──────────────────────────────────────────────
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="relative flex flex-col h-full" onPaste={handlePaste}>
       {/* Header */}
       <div className="px-5 pt-4 pb-2 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -243,7 +324,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
                   className="inline-block rounded-full"
                   style={{ width: 6, height: 6, background: 'var(--online)' }}
                 />
-                {mode === 'ai_chat' ? 'Online · AI Health Chat' : 'Hospital Finder'}
+                {mode === 'ai_chat' ? 'Online · AI Health & Vision' : 'Hospital Finder'}
               </p>
             </div>
           </div>
@@ -269,7 +350,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
             <button
               onClick={() => {
                 if (mode === 'ai_chat') {
-                  setMode('hospital_search'); // FIXED: Ensure we switch to hospital mode!
+                  setMode('hospital_search');
                   startHospitalSearch();
                 } else {
                   setMode('ai_chat');
@@ -317,27 +398,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
         role="log"
         aria-live="polite"
       >
-        {messages.map((msg) => {
-          if (msg.role === 'typing') {
-            return (
-              <div key={msg.id} className="flex justify-start mb-3">
-                <div className="bubble-bot px-4 py-3 flex gap-1.5 items-center" style={{ borderRadius: '4px 20px 20px 20px' }}>
-                  <div className="typing-dot" />
-                  <div className="typing-dot" />
-                  <div className="typing-dot" />
-                </div>
-              </div>
-            );
-          }
-          return (
-            <ChatMessage
-              key={msg.id}
-              message={msg as ChatMessageType}
-              userName={userName}
-              onQuickReply={handleQuickReply}
-            />
-          );
-        })}
+        {messages.map((msg) => (
+          <ChatMessage
+            key={msg.id}
+            message={msg as ChatMessageType}
+            userName={userName}
+            onQuickReply={handleQuickReply}
+          />
+        ))}
+
+        {/* Typing indicator while waiting for first token */}
+        {isStreaming && !streamingText && (
+          <div className="flex justify-start mb-3">
+            <div className="bubble-bot px-4 py-3 flex gap-1.5 items-center" style={{ borderRadius: '4px 20px 20px 20px' }}>
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+            </div>
+          </div>
+        )}
 
         {/* Streaming message */}
         {isStreaming && streamingText && (
@@ -353,14 +432,47 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
         )}
       </div>
 
-      {/* Input bar - updated style */}
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Image Preview Banner */}
+      {selectedImage && (
+        <div className="px-4 pb-2 flex items-center gap-2">
+          <div className="relative inline-block border border-white/20 rounded-lg overflow-hidden bg-black/20 p-1">
+            <img
+              src={selectedImage}
+              alt="Preview"
+              className="h-16 w-16 object-cover rounded"
+            />
+            <button
+              type="button"
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 shadow-md cursor-pointer"
+              aria-label="Remove image"
+            >
+              <X size={12} />
+            </button>
+          </div>
+          <span className="text-xs text-[var(--text-secondary)]">
+            Photo attached (prescription, report or medicine)
+          </span>
+        </div>
+      )}
+
+      {/* Input bar */}
       <form
         onSubmit={handleSubmit}
         className="flex-shrink-0 p-3 pt-1"
         style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
       >
         <div
-          className="flex items-center gap-2 px-4 py-2"
+          className="flex items-center gap-2 px-3 py-2"
           style={{
             background: 'var(--glass-bg)',
             borderRadius: 24,
@@ -368,13 +480,30 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
             boxShadow: '0 2px 8px var(--glass-shadow)',
           }}
         >
+          {/* Attachment button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || isProcessingImage}
+            title="Attach medicine photo, report, or prescription"
+            aria-label="Attach photo"
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
+            style={{ color: selectedImage ? 'var(--accent)' : 'var(--text-secondary)' }}
+          >
+            {isProcessingImage ? (
+              <Loader2 size={16} className="animate-spin text-[var(--accent)]" />
+            ) : (
+              <ImagePlus size={18} strokeWidth={1.5} />
+            )}
+          </button>
+
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
               mode === 'ai_chat'
-                ? 'Ask about medicines, health, hospitals…'
+                ? (selectedImage ? 'Ask a question about this photo (optional)...' : 'Ask about medicines, attach a photo…')
                 : 'Type a pincode, city, or select an option…'
             }
             className="flex-1 bg-transparent border-none outline-none"
@@ -391,7 +520,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
             disabled
             title="Voice input coming soon"
             aria-label="Voice input (coming soon)"
-            className="flex items-center justify-center w-8 h-8 rounded-full cursor-not-allowed"
+            className="flex items-center justify-center w-8 h-8 rounded-full cursor-not-allowed flex-shrink-0"
             style={{ color: 'var(--text-secondary)', opacity: 0.5 }}
           >
             <Mic size={16} strokeWidth={1.5} />
@@ -400,7 +529,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
             <button
               type="button"
               onClick={stopStreaming}
-              className="flex items-center justify-center w-8 h-8 mr-1 rounded-full cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 mr-1 rounded-full cursor-pointer flex-shrink-0"
               style={{ background: '#ff3b30' }}
               aria-label="Stop generating"
             >
@@ -409,7 +538,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ userName, onMapAction, onH
           ) : (
             <button
               type="submit"
-              className="flex items-center justify-center w-8 h-8 mr-1 rounded-full cursor-pointer"
+              disabled={(!inputText.trim() && !selectedImage) || isProcessingImage}
+              className={`flex items-center justify-center w-8 h-8 mr-1 rounded-full transition-opacity flex-shrink-0 ${
+                (!inputText.trim() && !selectedImage) || isProcessingImage ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+              }`}
               style={{ background: 'var(--accent-gradient)' }}
               aria-label="Send message"
             >

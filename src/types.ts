@@ -39,15 +39,20 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'bot' | 'system';
   text: string;
+  image?: string;
   quickReplies?: string[];
   timestamp: number;
 }
 
 export type ChatMode = 'ai_chat' | 'hospital_search';
 
+export type LLMContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | LLMContentPart[];
 }
 
 export interface MapAction {
@@ -90,7 +95,7 @@ export interface ChatSession {
   updatedAt: number;
 }
 
-// ─── Activity Logging ──────────────────────────────────────
+// ─── Activity Logging ───────────────────────────────────────
 
 export type ActivityAction =
   | 'login'

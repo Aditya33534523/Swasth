@@ -8,7 +8,7 @@ A single-page web application with a **dual-mode chat interface**: free-form AI 
 
 ### AI Chat Mode
 - **ChatGPT-style free-form conversation** — ask about medicines, health topics, government schemes
-- **Streaming responses** with a typing indicator, then token-by-token display and a blinking cursor
+- **Streaming responses** with a typing indicator (three pulsing dots while waiting for the first token), then token-by-token display and a blinking cursor
 - **Stop generation** button to cancel mid-response
 - **Markdown bold** rendering in bot messages
 - **Multilingual** — the LLM responds in whatever language the user types (English, Hindi, Hinglish, etc.)
@@ -83,6 +83,23 @@ cloudflared tunnel --url http://localhost:5173
 ```
 
 Both `llama-server` and `npm run dev` must be running on the same machine as cloudflared for this to work — the tunnel only fronts Vite; Vite is the one making the real `localhost:8080` call, from the machine where that's actually correct.
+
+## Recent Fixes & Verified Behavior
+
+### Typing Indicator UX (fixed)
+- **Issue**: No visual feedback while waiting for the first token from the LLM (up to 15 seconds)
+- **Fix**: Added typing indicator (three pulsing dots) shown while `isStreaming && !streamingText`; replaced with streaming text bubble once first token arrives
+- **Result**: Users see immediate visual feedback after sending a message, rather than a blank screen during the connect phase
+
+### Message Header Display (fixed)
+- **Issue**: Stray literal `\n` character (two bytes: backslash and n) was rendering as visible text in chat message headers
+- **Fix**: Removed the errant escape sequence from `ChatMessage.tsx` line 116
+- **Result**: Chat message headers display cleanly without spurious text
+
+### Verified Correct (no changes needed)
+- **Emergency location tracking**: Hospital search coordinates are correctly tracked and used as fallback for emergency detection — works as documented
+- **Session isolation**: `resetSessionUiState()` correctly isolates conversation state on switch/new/delete — no state bleed between conversations
+- **Background image paths**: CSS `bg-chat.jpg` and `bg-login.png` references are correct and match uploaded files
 
 ## Changing the LLM Server URL
 
